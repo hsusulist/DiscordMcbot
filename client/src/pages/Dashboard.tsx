@@ -1,60 +1,110 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import DashboardHeader from "@/components/DashboardHeader";
 import BotConfigCard from "@/components/BotConfigCard";
 import ServerSetupCard from "@/components/ServerSetupCard";
 import ServerStatusCard from "@/components/ServerStatusCard";
 import PlayerMonitorCard from "@/components/PlayerMonitorCard";
 import MonitoringControls from "@/components/MonitoringControls";
+import type { ServerStatus, ServerConfig } from "@shared/schema";
+
+interface BotStatus {
+  configured: boolean;
+  connected: boolean;
+  username?: string;
+}
 
 export default function Dashboard() {
-  const [isConnected, setIsConnected] = useState(false);
-  const [serverIp, setServerIp] = useState("");
-  const [serverPort, setServerPort] = useState("25565");
-  const [serverStatus, setServerStatus] = useState<"online" | "offline" | "checking">("offline");
-  const [lastChecked, setLastChecked] = useState<Date>();
-  const [playerCount, setPlayerCount] = useState(0);
-  const [maxPlayers, setMaxPlayers] = useState(20);
-  const [isMonitoring, setIsMonitoring] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [monitoringMode, setMonitoringMode] = useState<"once" | "auto">("once");
 
-  const handleBotTokenSave = (token: string) => {
-    console.log("Bot token saved:", token.substring(0, 10) + "...");
-    setIsConnected(true);
+  // Fetch bot status
+  const { data: botStatus } = useQuery<BotStatus>({
+    queryKey: ["/api/bot/status"],
+    refetchInterval: 5000,
+  });
+
+  // Fetch server config
+  const { data: serverConfig } = useQuery<ServerConfig | null>({
+    queryKey: ["/api/server/config"],
+  });
+
+  // Fetch server status
+  const { data: serverStatus, refetch: refetchStatus } = useQuery<ServerStatus | null>({
+    queryKey: ["/api/server/status"],
+    refetchInterval: serverConfig?.autoMonitor ? 10000 : false,
+  });
+
+  // Save bot token mutation
+  const saveBotTokenMutation = useMutation({
+    mutationFn: async (token: string) => {
+      return apiRequest("POST", "/api/bot/config", { token });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/bot/status"] });
+    },
+  });
+
+  // Save server config mutation
+  const saveServerConfigMutation = useMutation({
+    mutationFn: async ({ ip, port }: { ip: string; port: string }) => {
+      return apiRequest("POST", "/api/server/config", { ip, port, autoMonitor: false });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/server/config"] });
+      checkServerMutation.mutate();
+    },
+  });
+
+  // Check server mutation
+  const checkServerMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/server/check");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/server/status"] });
+    },
+  });
+
+  // Monitor control mutation
+  const monitorMutation = useMutation({
+    mutationFn: async (action: "start" | "stop") => {
+      return apiRequest("POST", "/api/server/monitor", { action });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/server/config"] });
+      if (monitoringMode === "auto") {
+        checkServerMutation.mutate();
+      }
+    },
+  });
+
+  const handleBotTokenSave = async (token: string) => {
+    await saveBotTokenMutation.mutateAsync(token);
   };
 
-  const handleServerSetup = (ip: string, port: string) => {
-    console.log("Server configured:", ip, port);
-    setServerIp(ip);
-    setServerPort(port);
-    checkServerOnce();
+  const handleServerSetup = async (ip: string, port: string) => {
+    await saveServerConfigMutation.mutateAsync({ ip, port });
   };
 
-  const checkServerOnce = async () => {
-    setServerStatus("checking");
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setServerStatus("online");
-    setPlayerCount(Math.floor(Math.random() * 15) + 1);
-    setMaxPlayers(20);
-    setLastChecked(new Date());
-  };
-
-  const handleRefreshPlayers = async () => {
-    setIsRefreshing(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setPlayerCount(Math.floor(Math.random() * 15) + 1);
-    setIsRefreshing(false);
-    setLastChecked(new Date());
+  const handleRefreshPlayers = () => {
+    checkServerMutation.mutate();
   };
 
   const handleStartMonitoring = () => {
-    console.log("Starting monitoring...");
-    setIsMonitoring(true);
-    checkServerOnce();
+    if (monitoringMode === "once") {
+      checkServerMutation.mutate();
+    } else {
+      monitorMutation.mutate("start");
+    }
   };
 
   const handleStopMonitoring = () => {
-    console.log("Stopping monitoring...");
-    setIsMonitoring(false);
+    monitorMutation.mutate("stop");
+  };
+
+  const handleModeChange = (mode: "once" | "auto") => {
+    setMonitoringMode(mode);
   };
 
   return (
@@ -70,11 +120,12 @@ export default function Dashboard() {
             <div className="grid gap-6 lg:grid-cols-2">
               <BotConfigCard 
                 onSave={handleBotTokenSave}
-                isConnected={isConnected}
+                isConnected={botStatus?.connected || false}
               />
               <ServerSetupCard 
                 onSave={handleServerSetup}
-                initialPort="25565"
+                initialIp={serverConfig?.ip}
+                initialPort={serverConfig?.port}
               />
             </div>
           </section>
@@ -86,22 +137,23 @@ export default function Dashboard() {
             </div>
             <div className="grid gap-6 lg:grid-cols-2">
               <ServerStatusCard 
-                ip={serverIp || "Not configured"}
-                port={serverPort}
-                status={serverStatus}
-                lastChecked={lastChecked}
+                ip={serverConfig?.ip || "Not configured"}
+                port={serverConfig?.port || "25565"}
+                status={serverStatus?.status || "offline"}
+                lastChecked={serverStatus?.lastChecked ? new Date(serverStatus.lastChecked) : undefined}
               />
               <PlayerMonitorCard 
-                playerCount={playerCount}
-                maxPlayers={maxPlayers}
+                playerCount={serverStatus?.playerCount || 0}
+                maxPlayers={serverStatus?.maxPlayers || 20}
                 onRefresh={handleRefreshPlayers}
-                isRefreshing={isRefreshing}
+                isRefreshing={checkServerMutation.isPending}
               />
             </div>
             <MonitoringControls 
               onStart={handleStartMonitoring}
               onStop={handleStopMonitoring}
-              isMonitoring={isMonitoring}
+              onModeChange={handleModeChange}
+              isMonitoring={serverConfig?.autoMonitor || false}
             />
           </section>
         </div>

@@ -257,6 +257,14 @@ export class DiscordBot {
       if (serverInfo.version) {
         embed.addFields({ name: "Version", value: serverInfo.version, inline: true });
       }
+      if (serverInfo.playerNames && serverInfo.playerNames.length > 0) {
+        const playerList = serverInfo.playerNames.join(", ");
+        embed.addFields({
+          name: "Online Players",
+          value: playerList.length > 1024 ? playerList.substring(0, 1021) + "..." : playerList,
+          inline: false,
+        });
+      }
     }
 
     embed.setTimestamp();

@@ -5,6 +5,7 @@ import { Users, RefreshCw } from "lucide-react";
 interface PlayerMonitorCardProps {
   playerCount?: number;
   maxPlayers?: number;
+  playerNames?: string[];
   onRefresh?: () => void;
   isRefreshing?: boolean;
 }
@@ -12,6 +13,7 @@ interface PlayerMonitorCardProps {
 export default function PlayerMonitorCard({ 
   playerCount = 0, 
   maxPlayers = 20,
+  playerNames = [],
   onRefresh,
   isRefreshing = false
 }: PlayerMonitorCardProps) {
@@ -58,6 +60,23 @@ export default function PlayerMonitorCard({
             />
           </div>
         </div>
+        {playerNames && playerNames.length > 0 && (
+          <div className="space-y-2 pt-2 border-t">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Online Players
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {playerNames.map((name, index) => (
+                <span 
+                  key={index} 
+                  className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-primary/10 text-primary"
+                >
+                  {name}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

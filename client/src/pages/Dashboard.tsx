@@ -145,6 +145,7 @@ export default function Dashboard() {
               <PlayerMonitorCard 
                 playerCount={serverStatus?.playerCount || 0}
                 maxPlayers={serverStatus?.maxPlayers || 20}
+                playerNames={serverStatus?.playerNames || []}
                 onRefresh={handleRefreshPlayers}
                 isRefreshing={checkServerMutation.isPending}
               />

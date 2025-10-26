@@ -3,8 +3,8 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { startBot, stopBot, getBotInstance } from "./discord-bot";
 import { checkMinecraftServer, createServerStatus } from "./minecraft-checker";
+import { monitoringManager } from "./monitoring-manager";
 import { botConfigSchema, serverConfigSchema } from "@shared/schema";
-import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Bot configuration endpoints
@@ -160,13 +160,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Update config to enable auto-monitoring
         await storage.saveServerConfig({ ...config, autoMonitor: true });
         
-        // The bot's auto-monitoring is separate from web dashboard
-        // For now, we'll just acknowledge the request
+        // Start monitoring
+        await monitoringManager.startMonitoring(guildId, config.ip, parseInt(config.port));
+        
         res.json({ 
           message: "Auto-monitoring started",
           monitoring: true 
         });
       } else if (action === "stop") {
+        // Stop monitoring
+        monitoringManager.stopMonitoring(guildId);
+        
         await storage.saveServerConfig({ ...config, autoMonitor: false });
         res.json({ 
           message: "Auto-monitoring stopped",
@@ -183,8 +187,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const httpServer = createServer(app);
 
-  // Auto-start bot if configured
+  // Auto-start bot and monitoring if configured
   (async () => {
+    // Start bot
     const config = await storage.getBotConfig();
     if (config) {
       try {
@@ -194,6 +199,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error("Failed to auto-start bot:", error);
       }
     }
+    
+    // Restore monitoring
+    await monitoringManager.restoreMonitoring();
   })();
 
   return httpServer;

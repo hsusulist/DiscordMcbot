@@ -7,6 +7,7 @@ export interface MinecraftServerInfo {
   maxPlayers: number;
   version?: string;
   motd?: string;
+  playerNames?: string[];
 }
 
 export async function checkMinecraftServer(
@@ -18,12 +19,17 @@ export async function checkMinecraftServer(
       timeout: 5000,
     });
 
+    const playerNames = result.players.sample 
+      ? result.players.sample.map((player: any) => player.name)
+      : [];
+
     return {
       online: true,
       playerCount: result.players.online,
       maxPlayers: result.players.max,
       version: result.version.name,
       motd: result.motd.clean,
+      playerNames,
     };
   } catch (error) {
     console.error(`Failed to check server ${ip}:${port}:`, error);
@@ -31,6 +37,7 @@ export async function checkMinecraftServer(
       online: false,
       playerCount: 0,
       maxPlayers: 0,
+      playerNames: [],
     };
   }
 }
@@ -46,6 +53,7 @@ export function createServerStatus(
     maxPlayers: serverInfo.maxPlayers,
     version: serverInfo.version,
     motd: serverInfo.motd,
+    playerNames: serverInfo.playerNames,
     lastChecked: new Date(),
   };
 }

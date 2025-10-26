@@ -50,6 +50,7 @@ export const serverStatusSchema = z.object({
   lastChecked: z.date(),
   version: z.string().optional(),
   motd: z.string().optional(),
+  playerNames: z.array(z.string()).optional(),
 });
 
 export type ServerStatus = z.infer<typeof serverStatusSchema>;

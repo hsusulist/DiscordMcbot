@@ -65,6 +65,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // For web dashboard, we'll use a special guildId
       const guildId = "web-dashboard";
+      
       const validation = serverConfigSchema.safeParse({
         ...req.body,
         guildId,
@@ -77,7 +78,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      // Stop any existing monitoring to prevent stale intervals (after validation succeeds)
+      monitoringManager.stopMonitoring(guildId);
+
       const config = await storage.saveServerConfig(validation.data);
+      
+      // Only start monitoring if the new config explicitly requests it
+      if (config.autoMonitor) {
+        await monitoringManager.startMonitoring(guildId, config.ip, parseInt(config.port));
+      }
+      
       res.json(config);
     } catch (error) {
       console.error("Error saving server config:", error);

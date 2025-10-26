@@ -54,3 +54,19 @@ export const serverStatusSchema = z.object({
 });
 
 export type ServerStatus = z.infer<typeof serverStatusSchema>;
+
+// Website settings schema
+export const websiteSettingsSchema = z.object({
+  primaryColor: z.string().default("#3b82f6"),
+  backgroundColor: z.string().default("#ffffff"),
+  cardBackgroundColor: z.string().default("#ffffff"),
+  textColor: z.string().default("#0f172a"),
+  borderColor: z.string().default("#e2e8f0"),
+  accentColor: z.string().default("#8b5cf6"),
+  successColor: z.string().default("#10b981"),
+  errorColor: z.string().default("#ef4444"),
+  warningColor: z.string().default("#f59e0b"),
+  theme: z.enum(["light", "dark", "auto"]).default("light"),
+});
+
+export type WebsiteSettings = z.infer<typeof websiteSettingsSchema>;

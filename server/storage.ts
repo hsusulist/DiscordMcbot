@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type BotConfig, type ServerConfig, type InsertServerConfig, type ServerStatus } from "@shared/schema";
+import { type User, type InsertUser, type BotConfig, type ServerConfig, type InsertServerConfig, type ServerStatus, type WebsiteSettings } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
@@ -20,6 +20,10 @@ export interface IStorage {
   // Server status methods
   getServerStatus(guildId: string): Promise<ServerStatus | undefined>;
   saveServerStatus(status: ServerStatus): Promise<ServerStatus>;
+  
+  // Website settings methods
+  getWebsiteSettings(): Promise<WebsiteSettings | undefined>;
+  saveWebsiteSettings(settings: WebsiteSettings): Promise<WebsiteSettings>;
 }
 
 export class MemStorage implements IStorage {
@@ -27,6 +31,7 @@ export class MemStorage implements IStorage {
   private botConfig: BotConfig | undefined;
   private serverConfigs: Map<string, ServerConfig>;
   private serverStatuses: Map<string, ServerStatus>;
+  private websiteSettings: WebsiteSettings | undefined;
 
   constructor() {
     this.users = new Map();
@@ -88,6 +93,16 @@ export class MemStorage implements IStorage {
   async saveServerStatus(status: ServerStatus): Promise<ServerStatus> {
     this.serverStatuses.set(status.guildId, status);
     return status;
+  }
+
+  // Website settings
+  async getWebsiteSettings(): Promise<WebsiteSettings | undefined> {
+    return this.websiteSettings;
+  }
+
+  async saveWebsiteSettings(settings: WebsiteSettings): Promise<WebsiteSettings> {
+    this.websiteSettings = settings;
+    return settings;
   }
 }
 

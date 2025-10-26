@@ -14,21 +14,31 @@ MC-Bot is a Discord bot with a web dashboard for monitoring Minecraft server sta
 
 ### Backend (Express + TypeScript)
 - **server/index.ts**: Main server entry point
-- **server/routes.ts**: API routes for web dashboard
-- **server/discord-bot.ts**: Discord bot implementation with slash commands
+- **server/routes.ts**: API routes for web dashboard and settings
+- **server/discord-bot.ts**: Discord bot implementation with modular command system
+- **server/commands/**: Modular Discord command files
+  - **setup.ts**: Server configuration command
+  - **ip.ts**: Display server IP command
+  - **check-server.ts**: Server status check command
+  - **stop-monitoring.ts**: Stop auto-monitoring command
+  - **player-list.ts**: Display online players command
+  - **server-info.ts**: Detailed server info command
+  - **help.ts**: Help and command list
+  - **index.ts**: Command registration and exports
 - **server/minecraft-checker.ts**: Minecraft server status checking utility
 - **server/monitoring-manager.ts**: Auto-monitoring system for periodic checks
-- **server/storage.ts**: In-memory storage for bot config and server settings
+- **server/storage.ts**: In-memory storage for bot config, server settings, and website settings
 
 ### Frontend (React + TypeScript + Vite)
 - **client/src/pages/Dashboard.tsx**: Main dashboard page
+- **client/src/pages/Settings.tsx**: Website customization settings page
 - **client/src/components/**: Reusable UI components
   - BotConfigCard: Bot token configuration
   - ServerSetupCard: Server IP/port setup
   - ServerStatusCard: Real-time server status display
-  - PlayerMonitorCard: Player count and capacity
+  - PlayerMonitorCard: Player count, capacity, and online player names
   - MonitoringControls: Start/stop monitoring controls
-  - DashboardHeader: Application header
+  - DashboardHeader: Application header with navigation
 
 ### Shared
 - **shared/schema.ts**: Shared TypeScript types and Zod schemas
@@ -47,12 +57,35 @@ Display the configured server IP and port
 - **Example**: `/ip`
 
 ### /check-server
-Check server status
+Check server status (one-time or auto-monitor)
 - **Parameters**:
   - `mode` (required): "One-time check" or "Auto-monitor (every 2 minutes)"
 - **Example**: `/check-server mode:once`
+- **Features**: Displays player count, max players, version, and online player names
+
+### /stop-monitoring
+Stop auto-monitoring your Minecraft server
+- **Example**: `/stop-monitoring`
+
+### /player-list
+Show the list of online players
+- **Example**: `/player-list`
+- **Features**: Shows numbered list of player names currently online
+
+### /server-info
+Display detailed server information
+- **Example**: `/server-info`
+- **Features**: Shows IP, port, status, auto-monitoring state, player count, version, and MOTD
+
+### /help
+Show all available commands and how to use them
+- **Example**: `/help`
 
 ## Web Dashboard
+
+### Pages
+- **Dashboard** (`/`): Main monitoring interface
+- **Settings** (`/settings`): Website customization
 
 ### Bot Configuration
 - Save Discord bot token
@@ -67,9 +100,18 @@ Check server status
 ### Monitoring Dashboard
 - Real-time server status (Online/Offline)
 - Current player count and max players
+- Online player names displayed as badges
 - Last checked timestamp
 - Manual refresh button
 - Auto-monitoring controls (2-minute intervals)
+
+### Website Settings
+- Customize primary, accent, success, error, and warning colors
+- Customize background, card background, text, and border colors
+- Visual color pickers with hex value inputs
+- Real-time preview
+- Reset to default option
+- Theme selection (light/dark/auto)
 
 ## API Endpoints
 
@@ -83,6 +125,10 @@ Check server status
 - `GET /api/server/status` - Get current server status
 - `POST /api/server/check` - Manually trigger server check
 - `POST /api/server/monitor` - Start/stop auto-monitoring
+
+### Website Settings
+- `GET /api/settings` - Get website customization settings
+- `POST /api/settings` - Save website customization settings
 
 ## Data Models
 
@@ -110,17 +156,40 @@ Check server status
   status: "online" | "offline" | "checking"
   playerCount?: number
   maxPlayers?: number
+  playerNames?: string[]
   lastChecked: Date
   version?: string
   motd?: string
 }
 ```
 
+### WebsiteSettings
+```typescript
+{
+  primaryColor: string
+  backgroundColor: string
+  cardBackgroundColor: string
+  textColor: string
+  borderColor: string
+  accentColor: string
+  successColor: string
+  errorColor: string
+  warningColor: string
+  theme: "light" | "dark" | "auto"
+}
+```
+
 ## Technical Details
+
+### Bot 24/7 Operation
+- Bot automatically starts on server startup if configured
+- Monitoring intervals are restored on restart
+- In-memory storage persists for the server session
+- Workflow runs continuously serving both API and frontend
 
 ### Storage
 - Uses in-memory storage (MemStorage class)
-- Separate storage for: bot config, server configs, server statuses
+- Separate storage for: bot config, server configs, server statuses, website settings
 - Web dashboard uses special guildId: "web-dashboard"
 
 ### Monitoring System
@@ -129,10 +198,17 @@ Check server status
 - Restores monitoring on server restart
 - Properly cleans up intervals on config changes
 
+### Command Architecture
+- Modular command system in `server/commands/`
+- Each command in separate file for maintainability
+- Commands export `data` (SlashCommandBuilder) and `execute` function
+- Centralized command registration via `commands/index.ts`
+
 ### Frontend State Management
 - React Query for server state management
 - Auto-refetch intervals for live updates
 - Optimistic UI updates with loading states
+- Wouter for client-side routing
 
 ## Development
 
@@ -147,13 +223,16 @@ Server runs on port 5000 (both API and frontend)
 - Bot token is stored via web dashboard (not in env vars)
 
 ## Dependencies
-- **discord.js**: Discord bot functionality
-- **minecraft-server-util**: Minecraft server status checking
+- **discord.js**: Discord bot functionality with slash commands
+- **minecraft-server-util**: Minecraft server status and player list checking
 - **express**: Backend API server
 - **react**: Frontend UI framework
+- **wouter**: Lightweight client-side routing
 - **@tanstack/react-query**: Server state management
 - **zod**: Schema validation
 - **drizzle-orm**: Type-safe database toolkit (schemas only)
+- **shadcn/ui**: UI component library with Radix UI primitives
+- **lucide-react**: Icon library
 
 ## Security Notes
 - Bot tokens are stored in memory only (not persisted to disk)
@@ -161,10 +240,19 @@ Server runs on port 5000 (both API and frontend)
 - Bot token input uses password-style masking
 - CORS configured for same-origin only
 
+## Recent Updates (October 2025)
+- ✅ Added player names display in Discord and web dashboard
+- ✅ Modular command system with separate command files
+- ✅ New Discord commands: /stop-monitoring, /player-list, /server-info, /help
+- ✅ Website settings page for color customization
+- ✅ Navigation between Dashboard and Settings pages
+- ✅ Improved bot 24/7 operation with auto-start
+
 ## Future Enhancements
-- Database persistence (PostgreSQL)
+- Database persistence (PostgreSQL) for permanent storage
 - Multiple server monitoring per guild
 - Historical status tracking and uptime graphs
-- Player list display
-- Discord notifications for status changes
-- Custom check intervals
+- Discord notifications for status changes (player join/leave, server offline)
+- Custom check intervals (configurable monitoring frequency)
+- Dark mode implementation using settings
+- Server performance metrics (TPS, lag)

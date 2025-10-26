@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { startBot, stopBot, getBotInstance } from "./discord-bot";
 import { checkMinecraftServer, createServerStatus } from "./minecraft-checker";
 import { monitoringManager } from "./monitoring-manager";
-import { botConfigSchema, serverConfigSchema } from "@shared/schema";
+import { botConfigSchema, serverConfigSchema, websiteSettingsSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Bot configuration endpoints
@@ -191,6 +191,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     } catch (error) {
       console.error("Error controlling monitoring:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Website settings endpoints
+  app.get("/api/settings", async (req, res) => {
+    try {
+      const settings = await storage.getWebsiteSettings();
+      
+      if (!settings) {
+        // Return default settings
+        const defaultSettings = websiteSettingsSchema.parse({});
+        return res.json(defaultSettings);
+      }
+      
+      res.json(settings);
+    } catch (error) {
+      console.error("Error getting website settings:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/settings", async (req, res) => {
+    try {
+      const validation = websiteSettingsSchema.safeParse(req.body);
+      
+      if (!validation.success) {
+        return res.status(400).json({ 
+          message: "Invalid settings", 
+          errors: validation.error.errors 
+        });
+      }
+
+      const settings = await storage.saveWebsiteSettings(validation.data);
+      res.json(settings);
+    } catch (error) {
+      console.error("Error saving website settings:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
